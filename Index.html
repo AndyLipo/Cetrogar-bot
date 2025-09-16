@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario QR</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📦 Sistema de Inventario QR</h1>
+            <p>Gestión inteligente de mercadería con códigos QR</p>
+        </div>
+
+        <div class="nav-buttons">
+            <button class="nav-btn active" onclick="showSection('config')">⚙️ Configuración</button>
+            <button class="nav-btn" onclick="showSection('central')">🏢 Central - Generar QR</button>
+            <button class="nav-btn" onclick="showSection('sucursal')">📱 Sucursal - Escanear</button>
+        </div>
+
+        <div class="content">
+            <!-- Sección de Configuración -->
+            <div id="config" class="section active">
+                <div class="config-section">
+                    <h3>🔧 Configuración de Google Sheets</h3>
+                    <p><strong>Importante:</strong> Para conectar con Google Sheets, necesitás configurar la API. Aquí
+                        te muestro cómo:</p>
+
+                    <div class="instructions">
+                        <h4>Pasos para configurar:</h4>
+                        <ol>
+                            <li>Creá tu Google Sheet con las columnas: Creacion, Fecha de creacion, Mes, Tipo, Remito
+                                Pendiente, Remito de Jaula, Crossdocking intersucursales, Estado, Sucursal de origen,
+                                Cliente, Estado, Observaciones</li>
+                            <li>Hacé el sheet público para edición o usá Google Apps Script</li>
+                            <li>Copiá la URL de tu Google Sheet acá abajo</li>
+                        </ol>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="scriptUrl">URL de Google App Script:</label>
+                        <input type="url" id="scriptUrl"
+                            placeholder="https://script.google.com/macros/s/AKfycbzd9jYGOxycQOBKbbTqaqPAy6_Ykx4gJacTRcyv_pQy0cYpYg8-0yE9XEf72ZLNxHaXWg/exec">
+                        <small>Esta es la URL de la "Aplicación web" que desplegaste desde Google Apps Script.</small>
+                    </div>
+
+                    <button class="btn" onclick="saveConfig()">💾 Guardar Configuración</button>
+                </div>
+
+                <div class="success-message" id="configSuccess">✅ Configuración guardada correctamente</div>
+                <div class="error-message" id="configError">❌ Error al guardar la configuración</div>
+            </div>
+
+            <!-- Sección Central - Generar QR -->
+            <div id="central" class="section">
+                <h2>🏢 Central - Cargar Producto y Generar QR</h2>
+
+                <form id="productForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="etiqueta">Etiqueta/Identificador:</label>
+                            <input type="text" id="etiqueta" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="fecha">Fecha:</label>
+                            <input type="date" id="fecha" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="suc">Sucursal:</label>
+                            <input type="text" id="suc" required placeholder="Ej: Sucursal Norte">
+                        </div>
+                        <div class="form-group">
+                            <label for="codAutorizacion">COD Autorización:</label>
+                            <input type="text" id="codAutorizacion">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="codigo">Código de Producto:</label>
+                            <input type="text" id="codigo" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="noRemito">N° Remito:</label>
+                            <input type="text" id="noRemito" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="descripcion">Descripción:</label>
+                            <textarea id="descripcion" rows="2" required></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="motivo">Motivo:</label>
+                            <input type="text" id="motivo">
+                        </div>
+                        <div class="form-group">
+                            <label for="proveedor">Proveedor:</label>
+                            <input type="text" id="proveedor">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn">📦 Generar QR y Guardar</button>
+                </form>
+                <canvas id="canvas" style="display: none;" willReadFrequently="true"></canvas>
+
+                <div id="qrResult" class="qr-display" style="display: none;">
+                    <h3>QR Generado</h3>
+                    <canvas id="qrCanvas"></canvas>
+                    <button class="btn" onclick="downloadQR()">⬇️ Descargar QR</button>
+                </div>
+
+                <div class="success-message" id="centralSuccess">✅ Producto guardado y QR generado correctamente</div>
+                <div class="error-message" id="centralError">❌ Error al guardar el producto</div>
+            </div>
+
+            <!-- Sección Sucursal - Escanear -->
+            <div id="sucursal" class="section">
+                <h2>📱 Sucursal - Escanear QR</h2>
+
+                <div class="scanner-container">
+                    <div class="scanner-info">
+                        <strong>📷 Instrucciones:</strong><br>
+                        Presioná "Iniciar Scanner" y apuntá la cámara hacia el código QR del producto.
+                        Los datos se cargarán automáticamente al Google Sheet.
+                    </div>
+
+                    <button class="btn" id="startScanner" onclick="startScanner()">📷 Iniciar Scanner</button>
+                    <button class="btn" id="stopScanner" onclick="stopScanner()" style="display: none;">⏹️ Detener
+                        Scanner</button>
+
+                    <video id="video" style="display: none;"></video>
+                    <canvas id="canvas" style="display: none;"></canvas>
+                </div>
+
+                <div id="scannedData" style="display: none; margin-top: 30px;">
+                    <h3>📄 Datos Escaneados</h3>
+                    <div id="dataDisplay" class="scanner-info"></div>
+                </div>
+
+                <div class="success-message" id="sucursalSuccess">✅ Datos agregados al inventario correctamente</div>
+                <div class="error-message" id="sucursalError">❌ Error al procesar el código QR</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="statusMessage"></div>
+    <script src="main.js"></script>
+</body>
+
+</html>
