@@ -3,6 +3,32 @@ let scanning = false;
 let qrCode = null;
 let currentData = null;
 
+// Verificar que todos los elementos necesarios existan
+window.addEventListener('load', () => {
+    console.log('Verificando elementos...');
+
+    const requiredElements = [
+        'qrCanvas', 'qrResult', 'productForm', 'video', 'canvas',
+        'etiqueta', 'fecha', 'suc', 'codigo', 'descripcion', 'noRemito'
+    ];
+
+    requiredElements.forEach(id => {
+        if (!document.getElementById(id)) {
+            console.error('Elemento no encontrado:', id);
+        }
+    });
+
+    // Cargar configuración
+    const savedUrl = localStorage.getItem('googleScriptUrl');
+    if (savedUrl) {
+        document.getElementById('scriptUrl').value = savedUrl;
+    }
+
+    // Auto-completar fecha actual
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('fecha').value = today;
+});
+
 // Configuración
 function showSection(sectionName) {
     // Ocultar todas las secciones
@@ -30,26 +56,28 @@ function saveConfig() {
     showMessage('configSuccess', 'Configuración guardada correctamente');
 }
 
-// Cargar configuración al inicio
-window.addEventListener('load', () => {
-    const savedUrl = localStorage.getItem('googleScriptUrl');
-    if (savedUrl) {
-        document.getElementById('scriptUrl').value = savedUrl;
-    }
-
-    // Auto-completar fecha actual
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('fecha').value = today;
-});
-
 // Función para mostrar mensajes
 function showMessage(elementId, message) {
     const element = document.getElementById(elementId);
+    if (!element) {
+        console.error('Elemento de mensaje no encontrado:', elementId);
+        return;
+    }
+
     element.textContent = message;
     element.style.display = 'block';
+
+    // Ocultar otros mensajes
+    const allMessages = document.querySelectorAll('.success-message, .error-message');
+    allMessages.forEach(msg => {
+        if (msg.id !== elementId) {
+            msg.style.display = 'none';
+        }
+    });
+
     setTimeout(() => {
         element.style.display = 'none';
-    }, 3000);
+    }, 5000);
 }
 
 // Central - Generar QR
@@ -59,6 +87,16 @@ document.getElementById('productForm').addEventListener('submit', function (e) {
 });
 
 function generateQR() {
+    // Verificar que el canvas del QR existe
+    const qrCanvas = document.getElementById('qrCanvas');
+    const qrResult = document.getElementById('qrResult');
+
+    if (!qrCanvas || !qrResult) {
+        console.error('Elementos del QR no encontrados');
+        showMessage('centralError', 'Error: Elementos de QR no configurados');
+        return;
+    }
+
     const formData = {
         etiqueta: document.getElementById('etiqueta').value,
         fecha: formatDate(document.getElementById('fecha').value),
@@ -68,28 +106,45 @@ function generateQR() {
         descripcion: document.getElementById('descripcion').value,
         motivo: document.getElementById('motivo').value,
         noRemito: document.getElementById('noRemito').value,
+        condicion: document.getElementById('condicion').value,
+        comentarios: document.getElementById('comentarios').value,
+        control: document.getElementById('control').value,
+        cantidad: document.getElementById('cantidad').value,
+        familia: document.getElementById('familia').value,
+        falla: document.getElementById('falla').value,
         proveedor: document.getElementById('proveedor').value
     };
 
-    // Guardar datos para posible envío
+    // Validar campos requeridos
+    if (!formData.etiqueta || !formData.codigo || !formData.descripcion) {
+        showMessage('centralError', 'Por favor completa los campos requeridos');
+        return;
+    }
+
+    // Guardar datos para el QR
     currentData = formData;
 
     // Generar QR con todos los datos
-    qrCode = new QRious({
-        element: document.getElementById('qrCanvas'),
-        value: JSON.stringify(formData),
-        size: 300,
-        background: 'white',
-        foreground: 'black'
-    });
+    try {
+        qrCode = new QRious({
+            element: qrCanvas,
+            value: JSON.stringify(formData),
+            size: 300,
+            background: 'white',
+            foreground: 'black',
+            level: 'H'
+        });
 
-    // Mostrar QR
-    document.getElementById('qrResult').style.display = 'block';
+        // Mostrar QR
+        qrResult.style.display = 'block';
 
-    // Enviar a Google Sheets
-    sendDataToGoogleSheets(formData, false);
+        // SOLO generar QR, NO enviar a Google Sheets
+        showMessage('centralSuccess', 'QR generado correctamente. Escanéalo en sucursal para registrar.');
 
-    showMessage('centralSuccess', 'Producto guardado y QR generado correctamente');
+    } catch (error) {
+        console.error('Error generando QR:', error);
+        showMessage('centralError', 'Error al generar el QR: ' + error.message);
+    }
 }
 
 function formatDate(dateString) {
@@ -99,10 +154,26 @@ function formatDate(dateString) {
 
 function downloadQR() {
     const canvas = document.getElementById('qrCanvas');
-    const link = document.createElement('a');
-    link.download = `QR_${document.getElementById('codigo').value}.png`;
-    link.href = canvas.toDataURL();
-    link.click();
+    if (!canvas) {
+        console.error('Canvas del QR no encontrado');
+        showMessage('centralError', 'Error: No se puede descargar el QR');
+        return;
+    }
+
+    try {
+        const link = document.createElement('a');
+        const codigo = document.getElementById('codigo').value || 'producto';
+        link.download = `QR_${codigo}.png`;
+        link.href = canvas.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        console.log('QR descargado correctamente');
+    } catch (error) {
+        console.error('Error al descargar QR:', error);
+        showMessage('centralError', 'Error al descargar el QR: ' + error.message);
+    }
 }
 
 // Sucursal - Scanner QR
@@ -114,7 +185,7 @@ function startScanner() {
 
     navigator.mediaDevices.getUserMedia({
         video: {
-            facingMode: 'environment' // Cámara trasera en móviles
+            facingMode: 'environment'
         }
     })
         .then(function (mediaStream) {
@@ -158,10 +229,10 @@ function processScannedData(data) {
     dataDisplay.innerHTML = htmlContent;
     document.getElementById('scannedData').style.display = 'block';
 
-    // Enviar a Google Sheets
+    // ENVIAR A GOOGLE SHEETS SOLO AL ESCANEAR
     sendDataToGoogleSheets(data, true);
 
-    showMessage('sucursalSuccess', 'Datos agregados al inventario correctamente');
+    showMessage('sucursalSuccess', 'Datos escaneados y enviados al inventario');
 }
 
 function scanQRCode() {
@@ -179,7 +250,6 @@ function scanQRCode() {
         try {
             const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 
-            // Verificar que jsQR esté disponible
             if (typeof jsQR === 'undefined') {
                 console.error('jsQR no está cargado');
                 showMessage('sucursalError', 'Error: Librería de scanner no cargada');
@@ -210,7 +280,7 @@ function scanQRCode() {
     }
 }
 
-// Función PARA ENVIAR DATOS a Google Sheets
+// Función PARA ENVIAR DATOS a Google Sheets (solo al escanear)
 function sendDataToGoogleSheets(data, isNewScan = false) {
     const scriptUrl = localStorage.getItem('googleScriptUrl');
 
@@ -228,19 +298,57 @@ function sendDataToGoogleSheets(data, isNewScan = false) {
         descripcion: data.descripcion || 'Sin descripción',
         motivo: data.motivo || 'Ninguno',
         noRemito: data.noRemito || '0',
+        condicion: data.condicion || '',
+        comentarios: data.comentarios || '',
+        control: data.control || '',
+        cantidad: data.cantidad || '1',
+        familia: data.familia || '',
+        falla: data.falla || '',
         proveedor: data.proveedor || 'Sin proveedor'
     };
 
-    console.log("Enviando este payload:", payload);
+    console.log("Enviando datos al escanear:", payload);
 
-    // Crear un formulario temporal
+    // Usar fetch con no-cors para evitar ventana emergente
+    try {
+        fetch(scriptUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams(payload).toString()
+        })
+            .then(() => {
+                console.log('Datos enviados silenciosamente a Google Sheets');
+                if (isNewScan) {
+                    showMessage('sucursalSuccess', '✅ Datos enviados correctamente al inventario');
+                }
+            })
+            .catch(error => {
+                console.error('Error en envío fetch:', error);
+                sendWithHiddenIframe(scriptUrl, payload, isNewScan);
+            });
+
+    } catch (error) {
+        console.error('Error en envío principal:', error);
+        sendWithHiddenIframe(scriptUrl, payload, isNewScan);
+    }
+}
+
+// Método alternativo con iframe invisible
+function sendWithHiddenIframe(scriptUrl, payload, isNewScan) {
+    const iframe = document.createElement('iframe');
+    iframe.name = 'hiddenFrame';
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = scriptUrl;
-    form.target = '_blank';
+    form.target = 'hiddenFrame';
     form.style.display = 'none';
 
-    // Agregar TODOS los campos como inputs hidden individuales
     Object.keys(payload).forEach(key => {
         const input = document.createElement('input');
         input.type = 'hidden';
@@ -252,11 +360,12 @@ function sendDataToGoogleSheets(data, isNewScan = false) {
     document.body.appendChild(form);
     form.submit();
 
-    console.log('Datos enviados mediante formulario');
-    showMessage(isNewScan ? 'sucursalSuccess' : 'centralSuccess', '✅ Datos enviados correctamente.');
-
-    // Limpiar después de enviar
     setTimeout(() => {
         document.body.removeChild(form);
-    }, 1000);
+        document.body.removeChild(iframe);
+        console.log('Datos enviados mediante iframe oculto');
+        if (isNewScan) {
+            showMessage('sucursalSuccess', '✅ Datos registrados en el inventario');
+        }
+    }, 2000);
 }

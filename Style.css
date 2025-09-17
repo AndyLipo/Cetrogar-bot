@@ -233,6 +233,42 @@ body {
     margin-bottom: 5px;
 }
 
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.form-group select {
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    background: white;
+}
+
+.qr-display {
+    margin-top: 20px;
+    padding: 20px;
+    border: 2px solid #4CAF50;
+    border-radius: 10px;
+    text-align: center;
+    background: #f9f9f9;
+}
+
+.qr-display canvas {
+    margin: 15px 0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+.qr-display .btn {
+    margin-top: 10px;
+}
+
 @media (max-width: 768px) {
     .form-row {
         grid-template-columns: 1fr;
