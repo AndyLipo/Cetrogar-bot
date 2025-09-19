@@ -22,6 +22,7 @@
             <button class="nav-btn active" onclick="showSection('config')">⚙️ Configuración</button>
             <button class="nav-btn" onclick="showSection('central')">🏢 Central - Generar QR</button>
             <button class="nav-btn" onclick="showSection('sucursal')">📱 Sucursal - Escanear</button>
+            <button class="nav-btn" onclick="showSection('modificar')">✏️ Modificar Datos</button>
         </div>
 
         <div class="content">
@@ -45,8 +46,7 @@
 
                     <div class="form-group">
                         <label for="scriptUrl">URL de Google App Script:</label>
-                        <input type="url" id="scriptUrl"
-                            placeholder="https://script.google.com/macros/s/AKfycbzd9jYGOxycQOBKbbTqaqPAy6_Ykx4gJacTRcyv_pQy0cYpYg8-0yE9XEf72ZLNxHaXWg/exec">
+                        <input type="url" id="scriptUrl" placeholder="Google sheet script">
                         <small>Esta es la URL de la "Aplicación web" que desplegaste desde Google Apps Script.</small>
                     </div>
 
@@ -193,6 +193,149 @@
                 <div class="error-message" id="sucursalError">❌ Error al procesar el código QR</div>
             </div>
         </div>
+    </div>
+    <div id="modificar" class="section">
+        <h2>✏️ Modificar Datos de QR</h2>
+
+        <div class="scanner-container">
+            <div class="scanner-info">
+                <strong>📷 Escanear QR a modificar:</strong><br>
+                Escanéa el QR cuyo contenido deseas modificar.
+            </div>
+
+            <button class="btn" id="startModifyScanner" onclick="startModifyScanner()">📷 Escanear QR para
+                Modificar</button>
+            <button class="btn" id="stopModifyScanner" onclick="stopModifyScanner()" style="display: none;">⏹️ Detener
+                Scanner</button>
+
+            <video id="modifyVideo" style="display: none;"></video>
+            <canvas id="modifyCanvas" style="display: none;" willReadFrequently="true"></canvas>
+        </div>
+
+        <!-- <div id="modifyFormContainer" style="display: none; margin-top: 30px;">
+            <h3>📝 Editar Datos del Producto</h3>
+
+            <form id="modifyForm">
+                 Los mismos campos del formulario principal pero para edición 
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="modifyEtiqueta">Etiqueta/Identificador:</label>
+                        <input type="text" id="modifyEtiqueta" required>
+                        <span id="etiquetaError" style="color: red; display: none;">¡Esta etiqueta ya existe!</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="modifyFecha">Fecha:</label>
+                        <input type="date" id="modifyFecha" required>
+                    </div>
+                </div>
+
+                 Repite todos los campos del formulario principal con prefijo "modify" 
+                ... (todos los demás campos) ... 
+
+                <button type="submit" class="btn">💾 Guardar Cambios y Generar Nuevo QR</button>
+            </form>
+        </div> -->
+        <div id="modifyFormContainer" style="display: none; margin-top: 30px;">
+            <h3>📝 Editar Datos del Producto</h3>
+
+            <form id="modifyForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="modifyEtiqueta">Etiqueta/Identificador:</label>
+                        <input type="text" id="modifyEtiqueta" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="modifyFecha">Fecha:</label>
+                        <input type="date" id="modifyFecha" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="modifySuc">Sucursal:</label>
+                        <input type="text" id="modifySuc" required placeholder="Ej: Sucursal Norte">
+                    </div>
+                    <div class="form-group">
+                        <label for="modifyCodAutorizacion">COD Autorización:</label>
+                        <input type="text" id="modifyCodAutorizacion">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="modifyCodigo">Código de Producto:</label>
+                        <input type="text" id="modifyCodigo" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="modifyNoRemito">N° Remito:</label>
+                        <input type="text" id="modifyNoRemito" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="modifyDescripcion">Descripción:</label>
+                        <textarea id="modifyDescripcion" rows="2" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="modifyMotivo">Motivo:</label>
+                        <input type="text" id="modifyMotivo">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="modifyCondicion">Condición:</label>
+                        <select id="modifyCondicion">
+                            <option value="">Seleccionar condición</option>
+                            <option value="Bueno">Bueno</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Malo">Malo</option>
+                            <option value="Nuevo">Nuevo</option>
+                            <option value="Usado">Usado</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="modifyControl">Control:</label>
+                        <input type="text" id="modifyControl">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="modifyCantidad">Cantidad:</label>
+                        <input type="number" id="modifyCantidad" min="1" value="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="modifyFamilia">Familia:</label>
+                        <input type="text" id="modifyFamilia">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="modifyFalla">Falla:</label>
+                        <textarea id="modifyFalla" rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="modifyProveedor">Proveedor:</label>
+                        <input type="text" id="modifyProveedor">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="modifyComentarios">Comentarios:</label>
+                        <textarea id="modifyComentarios" rows="3"></textarea>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn">💾 Guardar Cambios y Generar Nuevo QR</button>
+            </form>
+        </div>
+
+        <div class="success-message" id="modifySuccess">✅ Datos modificados correctamente</div>
+        <div class="error-message" id="modifyError">❌ Error al modificar los datos</div>
     </div>
 
     <div id="statusMessage"></div>
